@@ -1,0 +1,32 @@
+# Root-level ignores
+.DS_Store
+*.log
+*.env
+logs
+*.local
+
+# VS Code settings
+.vscode/*
+!.vscode/extensions.json
+
+# IDEs
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Client (React + Firebase)
+client/node_modules/
+client/dist/
+client/dist-ssr/
+client/.DS_Store
+client/src/firebase.js
+client/*.log
+
+# Server (Node.js + Express)
+server/node_modules/
+server/*.log
+server/.DS_Store
+server/.env
