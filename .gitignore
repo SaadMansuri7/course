@@ -30,3 +30,4 @@ server/node_modules/
 server/*.log
 server/.DS_Store
 server/.env
+server/serviceAccountKey.json
