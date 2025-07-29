@@ -56,7 +56,7 @@ const Login = () => {
                     <span
                         onClick={() => navigate("/register")}
                         className="text-purple-600 hover:underline cursor-pointer"
-                    >
+                    >   
                         Register
                     </span>
                 </p>

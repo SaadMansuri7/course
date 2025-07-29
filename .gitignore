@@ -1,3 +1,5 @@
+venv/
+
 # Root-level ignores
 .DS_Store
 *.log
