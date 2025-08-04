@@ -2,40 +2,79 @@ import { useForm } from "react-hook-form";
 import { useState } from "react";
 import { X, Upload } from "lucide-react";
 import axios from "axios";
+import { addNewCourse } from "../services/courseServices";
+import { useCourseContext } from "../context/CourseContext";
+import { useNavigate } from "react-router-dom";
+import { v4 as uuidv4 } from 'uuid'
 
 const UrlForm = ({ showForm, toggleForm, method }) => {
     const { register, handleSubmit, formState: { errors } } = useForm();
-    const [loading, setLoading] = useState(false);
+    const [loading, setLoading] = useState(false)
+    const { courses, setCourses } = useCourseContext()
+    const navigate = useNavigate()
 
     const languages = ['English', 'Hindi', 'Chinese', 'French', 'German', 'Italian', 'Spanish'];
 
+    function extractYouTubeThumbnail(url) {
+        const videoIdMatch = url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|v\/))([^&\n?#]+)/);
+        const videoId = videoIdMatch ? videoIdMatch[1] : null;
+        if (!videoId) return null;
+        return `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
+    }
     const handleFormSubmit = async (data, e) => {
         setLoading(true)
         e.preventDefault()
         try {
             const { url, file, name, language } = data;
-            console.log("Selected file:", file, 'and url : ', url)
-            let response
+            console.log("Selected file:", file, 'and url : ', url);
+            const id = uuidv4();
+            let response;
             if (method === 'Paste') {
-                response = await axios.post('http://localhost:8000/generate-course', { url,language })
+                response = await axios.post('http://localhost:8000/generate-course', { url, language });
+                const course = response.data.course;
+                const thumbnail = extractYouTubeThumbnail(url);
+                const courseId = uuidv4();
+                const draftCourse = {
+                    ...course,
+                    courseId,
+                    thumbnail,
+                    createdAt: new Date().toISOString()
+                };
+                console.log('course to be stored : ', draftCourse);
+                localStorage.setItem("draftCourse", JSON.stringify(draftCourse));
+                navigate(`/course/${id}`);
             } else if (method === 'Upload') {
-                const formData = new FormData()
+                const formData = new FormData();
                 const actualFile = file instanceof FileList ? file[0] : file;
-                formData.append('file', actualFile)
+                formData.append('file', actualFile);
+                formData.append('language', language);
+                formData.append('name', name);
+
                 response = await axios.post('http://localhost:8000/generate-course-from-file', formData, {
                     headers: {
                         "Content-Type": "multipart/form-data",
                     }
-                })
-            }
-            console.log("Course generated:", response.data.course)
-        } catch (error) {
-            console.log('effor submitting form : ', error)
-        } finally {
-            setLoading(false)
-            toggleForm()
-        }
+                });
 
+                const course = response.data.course;
+                const thumbnail = 'https://cdn-icons-png.flaticon.com/512/337/337940.png';
+                const courseId = uuidv4();
+                const draftCourse = {
+                    ...course,
+                    courseId,
+                    thumbnail,
+                    createdAt: new Date().toISOString()
+                };
+                console.log('course to be stored : ', draftCourse);
+                localStorage.setItem("draftCourse", JSON.stringify(draftCourse));
+                navigate(`/course/${id}`);
+            }
+        } catch (error) {
+            console.log('error submitting form : ', error);
+        } finally {
+            setLoading(false);
+            toggleForm();
+        }
     };
 
     return (
@@ -47,27 +86,33 @@ const UrlForm = ({ showForm, toggleForm, method }) => {
                 </div>
 
                 <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-4">
-
-                    <div>
-                        {method === 'Paste' ? (
-                            <>
-                                <input
-                                    type="text"
-                                    placeholder="https://www.youtube.com/watch?v=example"
-                                    {...register("url", { required: "YouTube URL is required" })}
-                                    className="w-full border border-gray-300 rounded-md px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
-                                />
-                                {errors.url && (
-                                    <p className="text-sm text-red-500">{errors.url.message}</p>
-                                )}
-                            </>
-                        ) : (
-                            <>
+                    {loading ? (
+                        <div className="flex items-center justify-center h-64">
+                            <Circles
+                                height="80"
+                                width="80"
+                                color="#2563EB"
+                                ariaLabel="circles-loading"
+                                visible={true} />
+                        </div>
+                    ) : (
+                        <>
+                            {method === 'Paste' ? (
+                                <>
+                                    <input
+                                        type="text"
+                                        placeholder="https://www.youtube.com/watch?v=example"
+                                        {...register("url", { required: "YouTube URL is required" })}
+                                        className="w-full border border-gray-300 rounded-md px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 transition" />
+                                    {errors.url && (
+                                        <p className="text-sm text-red-500">{errors.url.message}</p>
+                                    )}
+                                </>
+                            ) : (
                                 <div className="flex flex-col gap-2 w-full">
                                     <label
                                         htmlFor="file-upload"
-                                        className="cursor-pointer flex items-center justify-center gap-2 bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-md text-sm transition"
-                                    >
+                                        className="cursor-pointer flex items-center justify-center gap-2 bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-md text-sm transition">
                                         <Upload />
                                         Upload File
                                     </label>
@@ -77,45 +122,31 @@ const UrlForm = ({ showForm, toggleForm, method }) => {
                                         type="file"
                                         {...register('file', { required: "Please upload a file" })}
                                         className="hidden"
-                                        accept=".pdf,.doc,.docx,.txt"
-                                    />
+                                        accept=".pdf,.doc,.docx,.txt" />
 
                                     {errors.file && (
                                         <p className="text-sm text-red-500">{errors.file.message}</p>
                                     )}
                                 </div>
-                            </>
-                        )}
-                    </div>
+                            )}
 
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Course Name</label>
-                        <input
-                            type="text"
-                            placeholder="Enter a descriptive name"
-                            {...register("name", { required: "Course Name is required" })}
-                            className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        />
-                        {errors.name && <p className="text-sm text-red-500">{errors.name.message}</p>}
-                    </div>
-
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Language</label>
-                        <select
-                            {...register("language")}
-                            className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        >
-                            {languages.map((lan, index) => (
-                                <option key={index} value={lan}>{lan}</option>
-                            ))}
-                        </select>
-                        <p className="text-xs text-gray-500 mt-1">Course content will be translated to this language.</p>
-                    </div>
-
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Language</label>
+                                <select
+                                    {...register("language")}
+                                    className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                    {languages.map((lan, index) => (
+                                        <option key={index} value={lan}>{lan}</option>
+                                    ))}
+                                </select>
+                                <p className="text-xs text-gray-500 mt-1">Course content will be translated to this language.</p>
+                            </div>
+                        </>
+                    )}
                     <button
                         type="submit"
-                        className="w-full bg-blue-600 text-white font-semibold py-2 px-4 rounded-md hover:bg-blue-700 transition-all"
-                    >
+                        disabled={loading}
+                        className="w-full bg-blue-600 text-white font-semibold py-2 px-4 rounded-md hover:bg-blue-700 transition-all">
                         {loading ? "Creating..." : "Create Course"}
                     </button>
                 </form>

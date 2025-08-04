@@ -3,15 +3,22 @@ from fastapi import FastAPI, HTTPException, UploadFile, File
 from pydantic import BaseModel
 from dotenv import load_dotenv
 import os
-import google.generativeai as genai
+import re
+# import google.generativeai as genai
+from groq import Groq
 from youtube_transcript_api import YouTubeTranscriptApi, NoTranscriptFound, TranscriptsDisabled
 from fastapi.middleware.cors import CORSMiddleware
-from googletrans import Translator
+# from googletrans import Translator
+from deep_translator import GoogleTranslator
 import fitz
 from docx import Document
+import json
+from fastapi import HTTPException
 
 load_dotenv()
-genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
+# genai.configure(api_key=os.getenv("GROQ_API_KEY"))
+client = Groq(api_key=os.getenv("GROQ_API_KEY"))
+print('````````````````````````````````````````````````````````````````````````````api key being used : ',os.getenv("GROQ_API_KEY"))
 
 app = FastAPI()
 
@@ -25,12 +32,11 @@ app.add_middleware(
 )
 
 def translate_text(text: str, dest_lang: str = 'en', chunk_size: int = 4500) -> str:
-    translator = Translator()
     translated_chunks = []
     for i in range(0, len(text), chunk_size):
         chunk = text[i:i+chunk_size]
-        translated = translator.translate(chunk, dest=dest_lang)
-        translated_chunks.append(translated.text)
+        translated = GoogleTranslator(source='auto', target=dest_lang).translate(chunk)
+        translated_chunks.append(translated)
     return " ".join(translated_chunks)
 
 class YouTubeLink(BaseModel):
@@ -51,14 +57,14 @@ def generate_course(data: YouTubeLink):
         
         # Use the 'list' method to get available transcripts
         available_transcripts = api.list(video_id)
-        print("Available transcripts:", available_transcripts)
+        # print("Available transcripts:", available_transcripts)
 
         try:
             transcript = available_transcripts.find_manually_created_transcript([t.language_code for t in available_transcripts])
-            print(f"Using manually created transcript in: {transcript.language}")
+            # print(f"Using manually created transcript in: {transcript.language}")
         except:
             transcript = available_transcripts.find_generated_transcript([t.language_code for t in available_transcripts])
-            print(f"Using auto-generated transcript in: {transcript.language}")
+            # print(f"Using auto-generated transcript in: {transcript.language}")
 
         
         # Try to fetch transcript using the 'fetch' method
@@ -75,17 +81,17 @@ def generate_course(data: YouTubeLink):
         else:
             transcript_text = str(transcript_data)
         
-        print('Extracted transcript length:', len(transcript_text), 'and entire text  : ',transcript_text)
+        # print('Extracted transcript length:', len(transcript_text), 'and entire text  : ',transcript_text)
 
         if transcript.language_code.lower() != target_language:
-            print(f"Translating transcript to {target_language}...")
+            # print(f"Translating transcript to {target_language}...")
             transcript_text = translate_text(transcript_text, dest_lang=target_language)
         else:
             print("Transcript already in desired language. No translation needed.")
         
         if transcript_text and len(transcript_text.strip()) > 0:
-            # return process_transcript_with_ai(transcript_text)
-            print('transcripted text : ', transcript_text)
+            return process_transcript_with_ai(transcript_text)
+            # print('transcripted text : ', transcript_text)
         else:
             raise HTTPException(status_code=404, detail="No transcript content found.")
             
@@ -123,7 +129,7 @@ async def generate_course_from_file(file: UploadFile = File(...)):
             text = "\n".join([para.text for para in doc.paragraphs])
         else:
             raise HTTPException(status_code=400, detail="Unsupported file type.")
-        print('Extracted text ::: ',text)
+        # print('Extracted text ::: ',text)
 
         return process_transcript_with_ai(text)
 
@@ -132,39 +138,48 @@ async def generate_course_from_file(file: UploadFile = File(...)):
 
 # === Shared AI Call Function ===
 def process_transcript_with_ai(transcript: str):
-    prompt = f"""
-You are an expert online course generator. Given a transcript of a lecture, break it into structured units based on content flow (approx every 5–10 mins worth of text). For each unit, return JSON in this structure:
-
-[
-  {{
-    "unit_title": "Unit Title",
-    "summary": "2-3 paragraph summary of this unit",
-    "flashcards": [
-      {{"question": "Q1?", "answer": "A1"}}
-    ],
-    "mcqs": [
+    prompt = f"""You are an expert AI course generator. Given the transcript of a lecture, your task is to generate a complete structured course in JSON format. The course should be divided into logical units (minimum 3 units), each roughly based on 5-10 minutes of content or topic change. Every unit must contain at least:
+-1 clear and relevant title  
+-2-3 flashcards (short Q&A)  
+-5+ MCQs with options and correct answer  
+-2-3 FAQs
+Respond with only raw JSON. Use only double quotes for keys and string values. No Markdown formatting, no comments, no explanations.
+Must Use this exact structure:
+{{
+  "course_title": "Generated Course Title",
+  "instructor": null,
+  "rating": 0.0,
+  "level": "as per you like Begginear Intermidiate Advance",
+  "duration": 'approximate duration',
+  "courseData": {{
+    "units": [
       {{
-        "question": "MCQ question?",
-        "options": ["A", "B", "C", "D"],
-        "answer": "B"
+        "unit_title": "Unit Title",
+        "summary": "Detailed summary of this unit (1-2 paragraphs).",
+        "isCompleted": false,
+        "flashcards": [ {{"question": "What is ...?", "answer": "..."}} ],
+        "mcqs": [ {{ "question": "Which of the following is true about ...?", "options": ["A", "B", "C", "D"], "answer": "B" }} ],
+        "faqs": [ {{ "question": "Why is ... important?", "answer": "..."}} ]
       }}
-    ],
-    "faqs": [
-      {{"question": "FAQ?", "answer": "Answer"}}
     ]
   }}
-]
-
-Now generate the JSON only. Transcript:
+}}
+Now generate the course JSON for the following transcript:
 {transcript}
 """
-
-    model = genai.GenerativeModel("gemini-pro")
-    response = model.generate_content(prompt)
-
-    import json
     try:
-        result = json.loads(response.text)
+        response = client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=[{ "role": "user", "content": prompt }],
+            max_tokens=32000,
+            temperature=0.7
+        )
+        ai_content = response.choices[0].message.content
+        if ai_content.startswith("```"):
+            ai_content = re.sub(r"^```(?:json)?\s*|\s*```$", "", ai_content.strip(), flags=re.IGNORECASE)
+        ai_content = re.sub(r"(?<=:\s)'([^']*)'", r'"\1"', ai_content)
+        result = json.loads(ai_content)
+        # print('/////////////////////////////////////////generated course :: ',result)
         return {"course": result}
-    except json.JSONDecodeError:
-        raise HTTPException(status_code=500, detail="Failed to parse AI response as JSON.")
+    except json.JSONDecodeError as e:
+        raise HTTPException(status_code=500, detail=f"Failed to parse AI response as JSON. Error: {str(e)} and raw : {ai_content}")

@@ -1,5 +1,5 @@
 import { useForm } from 'react-hook-form';
-import { createUserWithEmailAndPassword } from 'firebase/auth';
+import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
 import { auth } from '../firebase.js';
 import { useNavigate } from 'react-router-dom';
 
@@ -7,9 +7,12 @@ const Register = () => {
     const { register, handleSubmit } = useForm();
     const navigate = useNavigate();
 
-    const onSubmit = async ({ email, password }) => {
+    const onSubmit = async ({ email, password, username }) => {
         try {
-            await createUserWithEmailAndPassword(auth, email, password);
+            const userCreds = await createUserWithEmailAndPassword(auth, email, password,);
+            await updateProfile(userCreds.user, {
+                displayName: username
+            })
             navigate('/dashboard');
         } catch (error) {
             console.log(error)

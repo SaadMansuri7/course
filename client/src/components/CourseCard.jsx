@@ -29,8 +29,8 @@ const CourseCard = ({course}) => {
     };
 
     const handleNav = () => {
-        navigate(`/course/${course.id}`)
-        // console.log('id passed by course page : ',course.id)
+        console.log('id passed by course page : ',course.courseId)
+        navigate(`/course/${course.courseId}`)
     }
 
     return (
@@ -39,8 +39,7 @@ const CourseCard = ({course}) => {
                 <img
                     src={course.thumbnail}
                     alt={course.course_title}
-                    className="h-32 w-32 object-contain"
-                />
+                    className="h-32 w-32 object-contain" />
             </div>
             <div className="mt-4 text-start">
                 <h2 className="text-lg font-semibold text-gray-800">{course.course_title}</h2>
