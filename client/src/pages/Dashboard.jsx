@@ -1,6 +1,5 @@
 import { useAuth } from '../context/AuthContext.jsx';
 import { useNavigate } from 'react-router-dom';
-import axiosInstance from '../axios/axiosInstance.js';
 import Navbar from '../components/Navbar.jsx';
 import MethodCards from '../components/MethodCards.jsx';
 import { ClipboardPaste, Upload } from "lucide-react";
@@ -17,39 +16,44 @@ const Dashboard = () => {
     const [selectedMethod, setSelectedMethod] = useState()
     const navigate = useNavigate()
     const [showForm, setShowForm] = useState(false)
+    const { enrLength, setEnrLength, allLength, setAllLength, isLoading, setIsLoading, enrolledCourses, setEnrolledCourses, courses, setCourses } = useCourseContext()
 
 
-    const handleLogout = async () => {
-        await logout();
-        navigate('/login');
-    };
+    // const handleLogout = async () => {
+    //     await logout();
+    //     navigate('/login');
+    // };
 
     const toggleForm = () => {
         setShowForm(prev => !prev)
     }
-
-    const { enrolledCourses, setEnrolledCourses, courses, setCourses } = useCourseContext()
 
     useEffect(() => {
         async function fetchEnrollments() {
             const userId = auth.currentUser.uid
             const res = await getEnrolments(userId)
             setEnrolledCourses(res.data)
+            setEnrLength(res.data.length)
         }
+        fetchEnrollments()
+    }, [enrLength])
+    useEffect(() => {
+
 
         async function fetchCourses() {
             try {
-
+                setIsLoading(true)
                 const res = await getAllCourses()
                 setCourses(res.data)
-                // console.log('fetched courses', res.data)
+                setIsLoading(false)
+                setAllLength(res.data.length)
+                // console.log('fetched courses', res.data, ' and length : ', allLength)
             } catch (error) {
-
+                console.log('error fetching course : ', error)
             }
         }
         fetchCourses()
-        fetchEnrollments()
-    }, [])
+    }, [allLength])
 
 
     return (
@@ -102,13 +106,25 @@ const Dashboard = () => {
                         </button>
                     </div>
 
-                    <div className="grid gap-6 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                        {enrolledCourses?.map((course, index) => (
-                            <div key={index} className="w-full h-full">
-                                <EnrolledCoursesCard course={course} />
-                            </div>
-                        ))}
-                    </div>
+                    {isLoading ? (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                            {[...Array(enrLength)].map((_, index) => (
+                                <div key={index} className="bg-white rounded-2xl shadow-md border p-4 animate-pulse">
+                                    <div className="h-32 w-32 bg-gray-300 rounded mx-auto" />
+                                    <div className="mt-4 h-4 bg-gray-300 rounded w-3/4 mx-auto" />
+                                    <div className="mt-2 h-3 bg-gray-300 rounded w-1/2 mx-auto" />
+                                </div>
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="grid gap-6 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                            {enrolledCourses?.map((course, index) => (
+                                <div key={index} className="w-full h-full">
+                                    <EnrolledCoursesCard course={course} />
+                                </div>
+                            ))}
+                        </div>
+                    )}
                 </div>
 
 
@@ -123,11 +139,23 @@ const Dashboard = () => {
                         </button>
                     </div>
 
-                    <div className="grid gap-8 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                        {courses?.map((course, index) => (
-                            <CourseCard key={index} course={course} />
-                        ))}
-                    </div>
+                    {isLoading ? (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                            {[...Array(allLength)].map((_, index) => (
+                                <div key={index} className="bg-white rounded-2xl shadow-md border p-4 animate-pulse">
+                                    <div className="h-32 w-32 bg-gray-300 rounded mx-auto" />
+                                    <div className="mt-4 h-4 bg-gray-300 rounded w-3/4 mx-auto" />
+                                    <div className="mt-2 h-3 bg-gray-300 rounded w-1/2 mx-auto" />
+                                </div>
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="grid gap-8 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                            {courses?.map((course, index) => (
+                                <CourseCard key={index} course={course} />
+                            ))}
+                        </div>
+                    )}
                 </div>
             </div>
         </div>

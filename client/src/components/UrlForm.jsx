@@ -2,25 +2,28 @@ import { useForm } from "react-hook-form";
 import { useState } from "react";
 import { X, Upload } from "lucide-react";
 import axios from "axios";
-import { addNewCourse } from "../services/courseServices";
 import { useCourseContext } from "../context/CourseContext";
 import { useNavigate } from "react-router-dom";
 import { v4 as uuidv4 } from 'uuid'
+import { ClipLoader } from 'react-spinners';
 
 const UrlForm = ({ showForm, toggleForm, method }) => {
     const { register, handleSubmit, formState: { errors } } = useForm();
     const [loading, setLoading] = useState(false)
     const { courses, setCourses } = useCourseContext()
+    const [isOpen, setIsOpen] = useState(false);
+    const [selected, setSelected] = useState("Select Language");
     const navigate = useNavigate()
 
     const languages = ['English', 'Hindi', 'Chinese', 'French', 'German', 'Italian', 'Spanish'];
 
     function extractYouTubeThumbnail(url) {
-        const videoIdMatch = url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|v\/))([^&\n?#]+)/);
-        const videoId = videoIdMatch ? videoIdMatch[1] : null;
+        const videoIdMatch = url.match(/[?&]v=([^&#]*)|youtu\.be\/([^&#]*)|youtube\.com\/embed\/([^&#]*)/);
+        const videoId = videoIdMatch ? (videoIdMatch[1] || videoIdMatch[2] || videoIdMatch[3]) : null;
         if (!videoId) return null;
         return `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
     }
+
     const handleFormSubmit = async (data, e) => {
         setLoading(true)
         e.preventDefault()
@@ -33,6 +36,7 @@ const UrlForm = ({ showForm, toggleForm, method }) => {
                 response = await axios.post('http://localhost:8000/generate-course', { url, language });
                 const course = response.data.course;
                 const thumbnail = extractYouTubeThumbnail(url);
+                console.log('extracted thumbnail : ', thumbnail)
                 const courseId = uuidv4();
                 const draftCourse = {
                     ...course,
@@ -40,7 +44,7 @@ const UrlForm = ({ showForm, toggleForm, method }) => {
                     thumbnail,
                     createdAt: new Date().toISOString()
                 };
-                console.log('course to be stored : ', draftCourse);
+                console.log('course to be stored as draft: ', draftCourse);
                 localStorage.setItem("draftCourse", JSON.stringify(draftCourse));
                 navigate(`/course/${id}`);
             } else if (method === 'Upload') {
@@ -49,13 +53,11 @@ const UrlForm = ({ showForm, toggleForm, method }) => {
                 formData.append('file', actualFile);
                 formData.append('language', language);
                 formData.append('name', name);
-
                 response = await axios.post('http://localhost:8000/generate-course-from-file', formData, {
                     headers: {
                         "Content-Type": "multipart/form-data",
                     }
                 });
-
                 const course = response.data.course;
                 const thumbnail = 'https://cdn-icons-png.flaticon.com/512/337/337940.png';
                 const courseId = uuidv4();
@@ -88,12 +90,7 @@ const UrlForm = ({ showForm, toggleForm, method }) => {
                 <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-4">
                     {loading ? (
                         <div className="flex items-center justify-center h-64">
-                            <Circles
-                                height="80"
-                                width="80"
-                                color="#2563EB"
-                                ariaLabel="circles-loading"
-                                visible={true} />
+                            <ClipLoader color="#2563EB" size={80} />
                         </div>
                     ) : (
                         <>
@@ -130,16 +127,37 @@ const UrlForm = ({ showForm, toggleForm, method }) => {
                                 </div>
                             )}
 
-                            <div>
+                            <div className="relative w-full">
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Language</label>
-                                <select
-                                    {...register("language")}
-                                    className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                                    {languages.map((lan, index) => (
-                                        <option key={index} value={lan}>{lan}</option>
-                                    ))}
-                                </select>
-                                <p className="text-xs text-gray-500 mt-1">Course content will be translated to this language.</p>
+
+                                <button
+                                    type="button"
+                                    onClick={() => setIsOpen(!isOpen)}
+                                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-left focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                >
+                                    {selected}
+                                </button>
+
+                                {isOpen && (
+                                    <ul className="absolute z-10 w-full mt-1 bg-white border rounded-md shadow-lg max-h-60 overflow-auto">
+                                        {languages.map((lan, index) => (
+                                            <li
+                                                key={index}
+                                                onClick={() => {
+                                                    setSelected(lan);
+                                                    setIsOpen(false);
+                                                }}
+                                                className="px-3 py-2 hover:bg-blue-100 cursor-pointer"
+                                            >
+                                                {lan}
+                                            </li>
+                                        ))}
+                                    </ul>
+                                )}
+
+                                <p className="text-xs text-gray-500 mt-1">
+                                    Course content will be translated to this language.
+                                </p>
                             </div>
                         </>
                     )}

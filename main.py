@@ -13,13 +13,13 @@ from deep_translator import GoogleTranslator
 import fitz
 from docx import Document
 import json
+import google.generativeai as genai
 from fastapi import HTTPException
 
 load_dotenv()
-# genai.configure(api_key=os.getenv("GROQ_API_KEY"))
-client = Groq(api_key=os.getenv("GROQ_API_KEY"))
-print('````````````````````````````````````````````````````````````````````````````api key being used : ',os.getenv("GROQ_API_KEY"))
-
+# client = Groq(api_key=os.getenv("GOOGLE_API_KEY"))
+genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
+# print('````````````````````````````````````````````````````````````````````````````api key being used : ',os.getenv("GOOGLE_API_KEY"))
 app = FastAPI()
 
 # CORS setup
@@ -90,7 +90,8 @@ def generate_course(data: YouTubeLink):
             print("Transcript already in desired language. No translation needed.")
         
         if transcript_text and len(transcript_text.strip()) > 0:
-            return process_transcript_with_ai(transcript_text)
+            trimmed_text = transcript_text.strip()[:6000]
+            return process_transcript_with_ai(trimmed_text)
             # print('transcripted text : ', transcript_text)
         else:
             raise HTTPException(status_code=404, detail="No transcript content found.")
@@ -168,18 +169,31 @@ Now generate the course JSON for the following transcript:
 {transcript}
 """
     try:
-        response = client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
-            messages=[{ "role": "user", "content": prompt }],
-            max_tokens=32000,
-            temperature=0.7
-        )
-        ai_content = response.choices[0].message.content
+        model = genai.GenerativeModel("gemini-1.5-flash")
+        response = model.generate_content(prompt)
+        ai_content = response.text.strip()
         if ai_content.startswith("```"):
-            ai_content = re.sub(r"^```(?:json)?\s*|\s*```$", "", ai_content.strip(), flags=re.IGNORECASE)
+            ai_content = re.sub(r"^```(?:json)?\s*|\s*```$", "", ai_content, flags=re.IGNORECASE)
+
         ai_content = re.sub(r"(?<=:\s)'([^']*)'", r'"\1"', ai_content)
+
         result = json.loads(ai_content)
-        # print('/////////////////////////////////////////generated course :: ',result)
+
         return {"course": result}
+        # response = client.chat.completions.create(
+        #     model="llama-3.3-70b-versatile",
+        #     messages=[{ "role": "user", "content": prompt }],
+        #     max_tokens=32000,
+        #     temperature=0.7
+        # )
+        # ai_content = response.choices[0].message.content
+        # if ai_content.startswith("```"):
+        #     ai_content = re.sub(r"^```(?:json)?\s*|\s*```$", "", ai_content.strip(), flags=re.IGNORECASE)
+        # ai_content = re.sub(r"(?<=:\s)'([^']*)'", r'"\1"', ai_content)
+        # result = json.loads(ai_content)
+        # # print('/////////////////////////////////////////generated course :: ',result)
+        # return {"course": result}
     except json.JSONDecodeError as e:
         raise HTTPException(status_code=500, detail=f"Failed to parse AI response as JSON. Error: {str(e)} and raw : {ai_content}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Gemini API error: {str(e)}")

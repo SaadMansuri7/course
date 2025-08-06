@@ -2,7 +2,7 @@ import { useEffect, useState } from "react"
 import { useCourseContext } from "../context/CourseContext"
 import { getEnrolments, updateEnrollmentState } from "../services/enrollmentServices"
 import { auth } from "../firebase"
-import { useParams } from "react-router-dom"
+import { useNavigate, useParams } from "react-router-dom"
 import { ChevronUp, ChevronDown, Star, StarHalf } from 'lucide-react'
 import Navbar from "../components/Navbar"
 
@@ -17,7 +17,7 @@ const StartCourse = () => {
     const [messages, setMessages] = useState([]);
     const [input, setInput] = useState("");
     const [isLoading, setIsLoading] = useState(true)
-
+    const navigate = useNavigate()
 
     useEffect(() => {
         async function fetchEnrollments() {
@@ -26,13 +26,13 @@ const StartCourse = () => {
             const res = await getEnrolments(userId)
             setEnrolledCourses(res.data)
             const enrollments = res.data
-            // console.log('fetched enrollments : ', enrollments)
+            console.log('fetched enrollments : ', enrollments)
             const courseToStart = enrollments.find((c) => {
                 console.log('course Id : ', c.courseId)
                 console.log('Id : ', id)
                 return String(c.courseId) === String(id)
             });
-            // console.log('course to start : ', courseToStart)
+            console.log('course to start : ', courseToStart)
             setCourseToStart(courseToStart)
             setIsLoading(false)
         }
@@ -59,21 +59,30 @@ const StartCourse = () => {
             [mcqIndex]: { selected: selectedOpt, correctAnswerIndex: answerIndex, selectedIndex, isCorrect }
         }))
     }
+
     const handleNextUnit = async () => {
         const userId = auth.currentUser.uid
         const courseId = courseToStart.courseId
         console.log('course id: ', courseId)
-        setCurrentUnitIndex((prev) => prev + 1);
-        setFlashcardIndex(0);
-        setSelectedOption({});
-        setMcqResults({});
-
         const course = enrolledCourses.find((c) => String(c.courseId) === String(id))
         if (course) {
             course.course.courseData.units[currentUnitIndex].isCompleted = true;
         }
         await updateEnrollmentState(userId, courseId, true, currentUnitIndex)
+        const isLastUnit = currentUnitIndex === course.course.courseData.units.length - 1;
+        if (!isLastUnit) {
+            setCurrentUnitIndex((prev) => prev + 1);
+            setFlashcardIndex(0);
+            setSelectedOption({});
+            setMcqResults({});
+        } else {
+            setFlashcardIndex(0);
+            setSelectedOption({});
+            setMcqResults({});
+            navigate(`/course/${id}/completed`)
+        }
     }
+
     const handleSend = async () => {
         if (!input.trim()) return
 
@@ -131,20 +140,59 @@ const StartCourse = () => {
 
     const units = courseToStart?.course?.courseData?.units
 
-    if (isLoading) {
-        return <p>Loading...</p>;
-    }
+    const showSkeleton = () => {
+        return (<div className="flex flex-col md:flex-row md:space-x-8 px-4 md:px-12 py-8 animate-pulse">
 
-    if (!courseToStart || !units || units.length === 0) {
-        console.log('course to start : ',courseToStart)
-        console.log('units : ',units)
-        return <div>No course data found</div>;
+            <div className="flex-1 space-y-6">
+                <div className="h-5 bg-gray-300 w-1/4 rounded"></div>
+
+                <div className="flex flex-wrap gap-4 mt-4">
+                    <div className="h-6 bg-gray-300 w-20 rounded"></div>
+                    <div className="h-6 bg-gray-300 w-20 rounded"></div>
+                    <div className="h-6 bg-gray-300 w-24 rounded"></div>
+                    <div className="h-6 bg-gray-300 w-32 rounded"></div>
+                </div>
+
+                <div className="border rounded-lg p-6 space-y-4 mt-6">
+                    <div className="h-6 bg-gray-300 w-3/4 rounded"></div>
+                    <div className="h-4 bg-gray-300 w-full rounded"></div>
+                    <div className="h-4 bg-gray-300 w-5/6 rounded"></div>
+                    <div className="h-4 bg-gray-300 w-2/3 rounded"></div>
+
+                    <div className="mt-6 space-y-3">
+                        <div className="h-5 bg-gray-300 w-1/2 rounded"></div>
+
+                        {[1, 2, 3, 4].map((_, index) => (
+                            <div key={index} className="flex items-center space-x-2">
+                                <div className="h-4 w-4 bg-gray-300 rounded-full"></div>
+                                <div className="h-4 bg-gray-300 w-2/3 rounded"></div>
+                            </div>
+                        ))}
+
+                        <div className="h-10 w-24 bg-gray-300 rounded mt-4"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div className="w-full md:w-1/3 space-y-4 mt-8 md:mt-0">
+                <div className="flex space-x-4 border-b pb-2">
+                    <div className="h-6 w-24 bg-gray-300 rounded"></div>
+                    <div className="h-6 w-20 bg-gray-300 rounded"></div>
+                </div>
+
+                <div className="border rounded-lg p-4 space-y-3">
+                    {[1, 2, 3].map((_, index) => (
+                        <div key={index} className="h-10 bg-gray-300 rounded"></div>
+                    ))}
+                </div>
+            </div>
+        </div>)
     }
 
     return (
         <>
             <Navbar />
-            <div className="px-4 md:px-16 lg:px-20 mx-auto max-w-screen-2xl">
+            {isLoading ? showSkeleton() : <div className="px-4 md:px-16 lg:px-20 mx-auto max-w-screen-2xl">
                 <div className="flex flex-col md:flex-row gap-8 py-10">
                     <div className="w-full md:w-2/3">
                         {courseToStart && (
@@ -294,7 +342,12 @@ const StartCourse = () => {
                                             >
                                                 Previous
                                             </button>
-                                            <button
+                                            {currentUnitIndex === units.length - 1 ? <button
+                                                className="px-4 py-2 bg-blue-600 text-white rounded disabled:opacity-50"
+                                                onClick={handleNextUnit}
+                                            >
+                                                Complete Course
+                                            </button> : <button
                                                 disabled={
                                                     units?.length > 0 && currentUnitIndex === units.length - 1
                                                 }
@@ -302,7 +355,7 @@ const StartCourse = () => {
                                                 onClick={handleNextUnit}
                                             >
                                                 Next
-                                            </button>
+                                            </button>}
                                         </div>
                                     </div>
                                 </div>
@@ -403,7 +456,7 @@ const StartCourse = () => {
                         </div>
                     </div>
                 </div>
-            </div>
+            </div>}
         </>
     );
 

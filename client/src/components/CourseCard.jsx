@@ -39,7 +39,7 @@ const CourseCard = ({course}) => {
                 <img
                     src={course.thumbnail}
                     alt={course.course_title}
-                    className="h-32 w-32 object-contain" />
+                    className="w-full h-auto object-contain max-w-md" />
             </div>
             <div className="mt-4 text-start">
                 <h2 className="text-lg font-semibold text-gray-800">{course.course_title}</h2>

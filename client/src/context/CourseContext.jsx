@@ -12,9 +12,12 @@ export const CourseProvider = ({ children }) => {
     const [courseToStart, setCourseToStart] = useState()
     const [currentUnitIndex, setCurrentUnitIndex] = useState(0)
     const [flashcardIndex, setFlashcardIndex] = useState(0)
+    const [isLoading, setIsLoading] = useState(true)
+    const [allLength, setAllLength] = useState(0)
+    const [enrLength, setEnrLength] = useState(0)
 
     return (
-        <CourseContext.Provider value={{ courseToStart, setCourseToStart, courses, setCourses, enrolledCourses, setEnrolledCourses, isEnrolled, setIsEnrolled, currentUnitIndex, setCurrentUnitIndex,flashcardIndex, setFlashcardIndex }}>
+        <CourseContext.Provider value={{ enrLength, setEnrLength, allLength, setAllLength, isLoading, setIsLoading, courseToStart, setCourseToStart, courses, setCourses, enrolledCourses, setEnrolledCourses, isEnrolled, setIsEnrolled, currentUnitIndex, setCurrentUnitIndex, flashcardIndex, setFlashcardIndex }}>
             {children}
         </CourseContext.Provider>
     )

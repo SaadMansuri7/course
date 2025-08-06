@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 const EnrolledCoursesCard = ({ course }) => {
     const courseToShow = course.course
     const navigate = useNavigate()
+    // console.log('course passed: ',course)
     // console.log('enrolled course :', course.course)
 
     const renderStars = () => {
@@ -30,7 +31,7 @@ const EnrolledCoursesCard = ({ course }) => {
 
 
     const handleNav = () => {
-        console.log('id passed by enrolled page : ',course.courseId)
+        console.log('id passed by enrolled page : ', course.courseId)
         navigate(`/course/${course.courseId}`)
     }
 
@@ -38,9 +39,9 @@ const EnrolledCoursesCard = ({ course }) => {
         <div onClick={handleNav} className="bg-white rounded-2xl shadow-md hover:shadow-lg transition-shadow duration-300 border border-gray-200 p-4">
             <div className="flex justify-center">
                 <img
-                    src={course.thumbnail}
+                    src={courseToShow.thumbnail}
                     alt={courseToShow.course_title}
-                    className="h-32 w-32 object-contain"
+                    className="w-full object-contain h-auto max-w-md"
                 />
             </div>
             <div className="mt-4 text-start">

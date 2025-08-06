@@ -10,6 +10,7 @@ import Account from './pages/Account.jsx';
 import CourseDetails from './pages/CourseDetails.jsx';
 import { CourseProvider } from './context/CourseContext.jsx';
 import StartCourse from './pages/StartCourse.jsx';
+import CompleteCourse from './pages/CompleteCourse.jsx';
 
 const ProtectedRoute = ({ children }) => {
   const { currentUser } = useAuth();
@@ -31,6 +32,7 @@ function App() {
             <Route path="/account" element={<Account />} />
             <Route path={`/course/:id`} element={<CourseDetails />} />
             <Route path={`/course/:id/learn`} element={<StartCourse />} />
+            <Route path={"/course/:id/completed"} element={<CompleteCourse />} />
             <Route path="*" element={<Navigate to="/dashboard" />} />
           </Routes>
         </BrowserRouter>
@@ -40,3 +42,7 @@ function App() {
 }
 
 export default App;
+
+
+// conda activate ./venv
+// uvicorn main:app --reload
